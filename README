@@ -1,0 +1,5 @@
+First pass at an Atmos based filesystem over http.  There will be issues, please report them to junkin_scot@emc.com.
+
+Currently the atmosns_fuse.c file needs to be edited to add credentials for your atmos system.   
+
+The filesystem currently starts under ATMOSFUSE in the namespace of your atmos system.

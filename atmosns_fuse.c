@@ -14,13 +14,13 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/xattr.h>
-
+#include <getopt.h>
 
 #include "params.h"
 
 #include <fuse.h>
 
-#include "log.h"
+#include "aollog.h"
 #include "atmos_rest.h"
 #include "transport.h"
 #define _XOPEN_SOURCE /* glibc2 needs this */
@@ -247,7 +247,7 @@ int atmos_mknod(const char *path, mode_t mode, dev_t dev)
     if(retstat !=-1)   {
 	log_normal("pre emetadata file status\n");
 	int rval = 0;
-	while(rval = add_user_meta_to_file(fpath,(int)mode, (int)dev) == 404) {
+	while( (rval = add_user_meta_to_file(fpath,(int)mode, (int)dev) == 404)) {
 	    log_normal("sleeping since we got a %d", rval);
 	    sleep(2);
 	}
@@ -1213,9 +1213,12 @@ struct fuse_operations atmos_oper = {
 
 void atmos_usage()
 {
-    fprintf(stderr, "usage:  atmosfs mountPoint\n");
+    fprintf(stderr, "usage:\n--user_id USER\n--key ATMOSKEY\n--debuglevel 0-5\n--local local directory\n--remote bucket in atmos\n--endpoint remote address to authenticate too.\n");
     abort();
 }
+
+
+
 
 int main(int argc, char *argv[])
 {
@@ -1223,10 +1226,82 @@ int main(int argc, char *argv[])
     int fuse_stat;
     struct atmos_state *atmos_data;
     ws_result wsr;
+    int c;
+    int digit_optind = 0;
+    int debug_level;
+    char *key=NULL, *user_id=NULL, *remotemnt=NULL, *localmnt=NULL, *endpoint=NULL;
+    while (1) {
+	int this_option_optind = optind ? optind : 1;
+	int option_index = 0;
+	static struct option long_options[] = {
+	    {"user_id", 1, 0, 'u'},
+	    {"key", 1, 0, 'k'},
+	    {"debuglevel",1,0,'d'},
+	    {"local",1,0,'l'},
+	    {"remote",1,0,'r'},
+	    {"endpoint",1,0,'e'},
+	    {0, 0, 0, 0}
+	};
+
+
+	c = getopt_long(argc, argv, "d:k:u:l:r:e",long_options, &option_index);
+	if (c == -1)
+	    break;
+
+	switch (c) {
+	case 0:
+	    printf("option %s", long_options[option_index].name);
+	    if (optarg)
+		printf(" with arg %s", optarg);
+	    printf("\n");
+	    break;
+
+	case '0':
+	case '1':
+	case '2':
+	    if (digit_optind != 0 && digit_optind != this_option_optind)
+		printf("digits occur in two different argv-elements.\n");
+	digit_optind = this_option_optind;
+	printf("option %c\n", c);
+	break;
+
+	case 'd':
+	    debug_level=atoi(optarg);
+	    break;
+	case 'e':
+	    endpoint =(char*)strdup(optarg);
+	    break;
+	case 'k':
+	    key =(char*)strdup(optarg);
+	    break;
+	case 'u':
+	    user_id=(char*)strdup(optarg);
+	    break;
+	case 'l':
+	    localmnt =(char*)strdup(optarg);
+	    break;
+	case 'r':
+	    remotemnt =(char*)strdup(optarg);
+	    break;
+	case '?':
+	    break;
+
+	default:
+	    printf("Invalid entry.\n");
+	    atmos_usage();
+	}
+    }
+
+    if (optind < argc) {
+	printf("non-option ARGV-elements: ");
+	while (optind < argc)
+	    printf("%s ", argv[optind++]);
+	printf("\n");
+    }
     //static int opt_binary= 0;
     //setup memcaceh
     atmos_data = calloc(sizeof(struct atmos_state), 1);
-  
+
     //    atmos_data->attr_cache = memcached_create(NULL);
     
     /*    memcached_server_st *servers= memcached_servers_parse("localhost");
@@ -1243,32 +1318,44 @@ int main(int argc, char *argv[])
     
     atmos_data->logfile = log_open();
 
-    for (i = 1; (i < argc) && (argv[i][0] == '-'); i++);
-    if (i == argc)
-	atmos_usage();
-    
-    atmos_data->rootdir = "/ATMOSFUSE";
 
-  
-    for (; i < argc; i++)
-	argv[i] = argv[i+1];
-    argc--;
-
-  
-    static const char *user_id = "whitewater";
-    static const char *key = "EIJHmj9JZSGVFQ2Hsl/scAsKm00=";
-    static const char *endpoint = "10.245.35.162";  //*/
-    static const char *rootdir = "/ATMOSFUSE/";
+    if(user_id == NULL || key == NULL || endpoint == NULL) atmos_usage();
     atmos_data->c = init_ws(user_id, key, endpoint);
       
-    create_ns(atmos_data->c, rootdir,NULL, NULL, NULL, &wsr);
+    create_ns(atmos_data->c, "/ATMOSFUSE/",NULL, NULL, NULL, &wsr);
     //  log_normal("atmos setup to receive fuse %d\n", wsr.return_code);  
     result_deinit(&wsr);
       
       
     //  log_normal("about to call fuse_main\n");
-    fuse_stat = fuse_main(argc, argv, &atmos_oper, atmos_data);
-    //  log_normal("fuse_main returned %d\n", fuse_stat);
+    int fuse_argc = 2;
+    char fuse_argv[2][128];
+    
+    
+    sprintf(fuse_argv[0],"atmosns");
+    printf("%s\n", fuse_argv[0]);
+    sprintf(fuse_argv[1],"%s",localmnt);
+    printf("%s\n", fuse_argv[1]);
+    //sprintf(fuse_argv[2],"%s",localmnt);
+    //printf("%s\n", fuse_argv[2]);    
+
+    //for (i = 1; (i < fuse_argc) && (fuse_argv[i][0] == '-'); i++);
+    //if (i == fuse_argc)
+    //atmos_usage();
+    
+    atmos_data->rootdir = "/ATMOSFUSE";
+
+  
+    /*    struct fuse_args fargs = FUSE_ARGS_INIT(fuse_argc, fuse_argv);
+    printf("%d args\n", fargs.argc);
+    int argcnt=0;*/
+    /*    for(argcnt; argcnt <=fargs.argc; argcnt++) {
+	printf("%d is %s\n", argcnt, fargs.argv[argcnt]);
+	}*/
+    //    fuse_stat = fuse_main(fargs.argc, fargs.argv, &atmos_oper, atmos_data);
+    fuse_stat = fuse_main(fuse_argc, fuse_argv, &atmos_oper, atmos_data);
+    //yfuse_stat = fuse_main(argc, argv, &atmos_oper, atmos_data);
+    //log_normal("fuse_main returned %d\n", fuse_stat);
     free(atmos_data->c);
     free(atmos_data);
     

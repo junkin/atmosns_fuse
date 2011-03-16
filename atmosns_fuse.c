@@ -1328,14 +1328,17 @@ int main(int argc, char *argv[])
       
       
     //  log_normal("about to call fuse_main\n");
-    int fuse_argc = 2;
-    char fuse_argv[2][128];
-    
-    
-    sprintf(fuse_argv[0],"atmosns");
-    printf("%s\n", fuse_argv[0]);
-    sprintf(fuse_argv[1],"%s",localmnt);
+    int fuse_argc = 3;
+    char fuse_argv[3][128];
+    memset(fuse_argv[0], 0, 128);
+    memset(fuse_argv[1], 0, 128);
+
+    sprintf(fuse_argv[0],"%s",localmnt);
     printf("%s\n", fuse_argv[1]);
+    
+    sprintf(fuse_argv[1],"%s",remotemnt);
+    printf("%s\n", fuse_argv[2]);
+
     //sprintf(fuse_argv[2],"%s",localmnt);
     //printf("%s\n", fuse_argv[2]);    
 
@@ -1345,15 +1348,13 @@ int main(int argc, char *argv[])
     
     atmos_data->rootdir = "/ATMOSFUSE";
 
-  
-    /*    struct fuse_args fargs = FUSE_ARGS_INIT(fuse_argc, fuse_argv);
-    printf("%d args\n", fargs.argc);
-    int argcnt=0;*/
-    /*    for(argcnt; argcnt <=fargs.argc; argcnt++) {
-	printf("%d is %s\n", argcnt, fargs.argv[argcnt]);
-	}*/
-    //    fuse_stat = fuse_main(fargs.argc, fargs.argv, &atmos_oper, atmos_data);
-    fuse_stat = fuse_main(fuse_argc, fuse_argv, &atmos_oper, atmos_data);
+    
+    struct fuse_args fargs = FUSE_ARGS_INIT(0, NULL);
+    fuse_opt_add_arg(&fargs, fuse_argv[0]);
+    fuse_opt_add_arg(&fargs, fuse_argv[1]);
+    //    fuse_opt_add_arg(&fargs, fuse_argv[2]);
+    fuse_stat = fuse_main(fargs.argc, fargs.argv, &atmos_oper, atmos_data);
+	//fuse_stat = fuse_main(fuse_argc, fuse_argv, &atmos_oper, atmos_data);
     //yfuse_stat = fuse_main(argc, argv, &atmos_oper, atmos_data);
     //log_normal("fuse_main returned %d\n", fuse_stat);
     free(atmos_data->c);

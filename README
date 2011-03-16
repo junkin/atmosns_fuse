@@ -1,5 +1,3 @@
-First pass at an Atmos based filesystem over http.  There will be issues, please report them to junkin_scot@emc.com.
+First pass at an Atmos based filesystem over http.  Currently relies on libssl and libcurl, memcached support for fstat structs may or may not stay.  There will be issues, please report them to junkin_scot@emc.com.
 
-Currently the atmosns_fuse.c file needs to be edited to add credentials for your atmos system.   
-
-The filesystem currently starts under ATMOSFUSE in the namespace of your atmos system.
+The filesystem currently starts under ATMOSFUSE in the namespace of your atmos system - this is getting worked into command line arguments.  running make in this directory should build the system - if there are errors you will need

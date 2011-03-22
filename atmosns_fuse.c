@@ -1065,9 +1065,10 @@ int atmos_access(const char *path, int mask)
 {
     int retstat = 0;
     char fpath[PATH_MAX];
-   
-    log_normal("\natmos_access(path=\"%s\", mask=0%o)\n",
-	    path, mask);
+    log_normal("\natmos_access(path=\"%s\"\n",   path);
+    log_normal(" mask=0%o)\n", mask);
+    //    log_normal("\natmos_access(path=\"%s\", mask=0%o)\n",
+    //path, mask);
     atmos_fullpath(fpath, path);
     
     //  retstat = access(fpath, mask);
@@ -1222,7 +1223,6 @@ void atmos_usage()
 
 int main(int argc, char *argv[])
 {
-    int i;
     int fuse_stat;
     struct atmos_state *atmos_data;
     ws_result wsr;
@@ -1298,6 +1298,7 @@ int main(int argc, char *argv[])
 	    printf("%s ", argv[optind++]);
 	printf("\n");
     }
+
     //static int opt_binary= 0;
     //setup memcaceh
     atmos_data = calloc(sizeof(struct atmos_state), 1);
@@ -1322,43 +1323,46 @@ int main(int argc, char *argv[])
     if(user_id == NULL || key == NULL || endpoint == NULL) atmos_usage();
     atmos_data->c = init_ws(user_id, key, endpoint);
       
-    create_ns(atmos_data->c, "/ATMOSFUSE/",NULL, NULL, NULL, &wsr);
-    //  log_normal("atmos setup to receive fuse %d\n", wsr.return_code);  
+    char slash_remotemnt[1024];
+    
+    if(remotemnt[strlen(remotemnt)] != '/') {
+	sprintf(slash_remotemnt,"%s/", remotemnt);
+    } else {
+	memcpy(remotemnt, slash_remotemnt, strlen(remotemnt));
+	remotemnt[strlen(remotemnt-1)] = '\0';
+    }
+    
+    char *tmpptr = NULL;
+    if(remotemnt[0] !='/') {
+	tmpptr = malloc(strlen(remotemnt)+2);
+	sprintf(tmpptr,"/%s",remotemnt);
+	free(remotemnt);
+	remotemnt=tmpptr;
+    } 
+    atmos_data->rootdir = remotemnt;
+    create_ns(atmos_data->c, slash_remotemnt,NULL, NULL, NULL, &wsr);
     result_deinit(&wsr);
-      
-      
-    //  log_normal("about to call fuse_main\n");
-    int fuse_argc = 3;
+
     char fuse_argv[3][128];
     memset(fuse_argv[0], 0, 128);
     memset(fuse_argv[1], 0, 128);
 
-    sprintf(fuse_argv[0],"%s",localmnt);
-    printf("%s\n", fuse_argv[1]);
-    
-    sprintf(fuse_argv[1],"%s",remotemnt);
-    printf("%s\n", fuse_argv[2]);
-
-    //sprintf(fuse_argv[2],"%s",localmnt);
-    //printf("%s\n", fuse_argv[2]);    
-
-    //for (i = 1; (i < fuse_argc) && (fuse_argv[i][0] == '-'); i++);
-    //if (i == fuse_argc)
-    //atmos_usage();
-    
-    atmos_data->rootdir = "/ATMOSFUSE";
-
+    sprintf(fuse_argv[0],"%s",remotemnt);
+    sprintf(fuse_argv[1],"%s",localmnt);
     
     struct fuse_args fargs = FUSE_ARGS_INIT(0, NULL);
     fuse_opt_add_arg(&fargs, fuse_argv[0]);
     fuse_opt_add_arg(&fargs, fuse_argv[1]);
-    //    fuse_opt_add_arg(&fargs, fuse_argv[2]);
+
     fuse_stat = fuse_main(fargs.argc, fargs.argv, &atmos_oper, atmos_data);
-	//fuse_stat = fuse_main(fuse_argc, fuse_argv, &atmos_oper, atmos_data);
-    //yfuse_stat = fuse_main(argc, argv, &atmos_oper, atmos_data);
-    //log_normal("fuse_main returned %d\n", fuse_stat);
+
     free(atmos_data->c);
     free(atmos_data);
-    
+    free(endpoint);
+    free(key);
+    free(user_id);
+    free(localmnt);
+    free(remotemnt);
+
     return fuse_stat;
 }
